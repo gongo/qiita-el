@@ -47,34 +47,58 @@
   "The base URI on Qiita API. see <http://qiita.com/docs>")
 (defvar qiita->token nil)
 
-(defun qiita:api-exec (method uri &optional args)
+(defun qiita:response-status (response)
+  (plist-get response :status))
+
+(defun qiita:response-body (response)
+  (plist-get response :json))
+
+(defun qiita:api-exec (method path &optional args)
   (with-temp-buffer
     (when qiita->token
       (add-to-list 'args `("token" . ,qiita->token)))
-    (let* ((query (json-encode-alist args))
+    (let* ((uri (concat qiita->api-endpoint path))
+           (query (json-encode-alist args))
            (ret (call-process "curl" nil (current-buffer) nil
                               "-H" "Content-type: application/json"
                               "-s"
                               "-X" method
-                              "--data-binary" query uri)))
-      (condition-case err
-          (progn
-            (unless (zerop ret)
-              (error (format "Error: Not retrieved %s" uri)))
-            (let ((json-object-type 'plist)
-                  (json-array-type 'list))
-              (json-read-from-string (buffer-substring-no-properties
-                                      (point-min) (point-max)))))
-        (error (message (error-message-string err)))))))
+                              "-w" "\nhttp_code=%{http_code}"
+                              "--data-binary" query uri))
+           res body)
+      (goto-char (point-min))
+
+      (unless (zerop ret)
+        (error (format "Error: Not retrieved %s" uri)))
+      (unless (re-search-forward "^http_code=\\(.*\\)$" nil t)
+        (error "Error: Can't find status code"))
+
+      ;; ectract status code
+      (setq res
+            (plist-put res :status
+                       (string-to-number (match-string-no-properties 1))))
+      (delete-region (match-beginning 0) (match-end 0))
+
+      ;; convert string to json object
+      (setq body (replace-regexp-in-string
+                  "\n+$" ""
+                  (buffer-substring-no-properties (point-min) (point-max))))
+      (setq res (plist-put res :json
+                           (unless (eq 0 (length body))
+                             (let ((json-object-type 'plist)
+                                   (json-array-type 'list))
+                               (json-read-from-string body)))))
+      res
+      )))
 
 (defun qiita:api-rate-limit ()
-  (qiita:api-exec "GET" (concat qiita->api-endpoint "/rate_limit")))
+  (let ((response (qiita:api-exec "GET" "/rate_limit")))
+    (qiita:response-body response)))
 
 (defun qiita:api-auth (username password)
-  (plist-get (qiita:api-exec "POST" (concat qiita->api-endpoint "/auth")
-                             `(("url_name" . ,username)
-                               ("password" . ,password)))
-             :token))
+  (let ((response (qiita:api-exec "POST" "/auth" `(("url_name" . ,username)
+                                                   ("password" . ,password)))))
+    (plist-get (qiita:response-body response) :token)))
 
 (defun qiita:api-user-items (username)
   "指定したユーザーの投稿を取得します。"
@@ -93,23 +117,28 @@
 
 (defun qiita:api-tag ()
   "タグ一覧を取得します。"
-  (qiita:api-exec "GET" (concat qiita->api-endpoint "/tags")))
+  ;;(qiita:api-exec "GET" "/tags"))
+  ;;pending
+  )
 
 (defun qiita:api-search (q &optional stocked)
   "指定したキーワードの検索結果を取得します。 TODO"
-  (let ((args `(("q" . ,q))))
+  (let ((args `(("q" . ,q)))
+        response)
     (when qiita->token
       (add-to-list 'args `("stocked" . ,(if stocked "true" "false"))))
-    (qiita:api-exec "GET" (concat qiita->api-endpoint "/search") args)))
+    (setq response (qiita:api-exec "GET" "/search" args))
+    (qiita:response-body response)))
 
 (defun qiita:api-items ()
-  "新着投稿を取得します。
-もし認証を行う場合は、自身の新着投稿を取得します。"
-  (qiita:api-exec "GET" (concat qiita->api-endpoint "/items")))
+  (let ((response (qiita:api-exec "GET" "/items")))
+    (qiita:response-body response)))
 
 (defun qiita:api-stocks ()
   "自分のストックした投稿を取得します。(要認証)"
-  (qiita:api-exec "GET" (concat qiita->api-endpoint "/stocks")))
+  ;;(qiita:api-exec "GET" "/stocks"))
+  ;;pending
+  )
 
 (defun qiita:api-create-item (title body tags private &optional gist? tweet?)
   (let ((args `(("title"   . ,title)
@@ -118,18 +147,26 @@
                 ("private" . ,private))))
     (when gist?    (add-to-list 'args '("gist"    . "true")))
     (when tweet?   (add-to-list 'args '("tweet"   . "true")))
-    (qiita:api-exec "POST" (concat qiita->api-endpoint "/items") args)))
+
+    (let ((response (qiita:api-exec "POST" "/items" args)))
+      (if (eq 201 (qiita:response-status response))
+          (message "success")
+        (error "Error: Can't create item because %s"
+               (plist-get (qiita:response-body response) :error))))))
 
 (defun qiita:api-update-item ()
   ;; pending
   )
 
-(defun qiita:api-delete-item ()
-  ;; pending
-  )
+(defun qiita:api-delete-item (uuid)
+  (let ((response (qiita:api-exec "DELETE" (format "/items/%s" uuid))))
+    (if (eq 204 (qiita:response-status response))
+        (message "success")
+      (error "Error: Can't Delete item (%s). because %s"
+             uuid (plist-get (qiita:response-body response) :error)))))
 
 (defun qiita:api-get-item (uuid)
-  "指定した投稿 UUID を取得します。"
+  ;;(qiita:api-exec "GET" (format "/items/%s" uuid)))
   ;; pending
   )
 
@@ -184,3 +221,45 @@
             (body (buffer-substring-no-properties (point-min) (point-max)))
             (private (if (null private?) "true" "false")))
         (qiita:api-create-item title body tags private)))))
+
+(defun qiita:browse (uuid)
+  (browse-url (concat "http://qiita.com/items/" uuid)))
+
+(defun qiita:items-candidates ()
+  (mapcar (lambda (item)
+            (let ((title (plist-get item :title))
+                  (uuid  (plist-get item :uuid))
+                  (user  (plist-get (plist-get item :user) :name))
+                  (tags  (mapconcat (lambda (tag)
+                                      (concat "[" (plist-get tag :name) "]"))
+                                    (plist-get item :tags) "")))
+              (cons (concat tags  "\n"
+                            title "\n"
+                            "  by " user)
+                    uuid)))
+          (qiita:api-items)))
+
+
+(defun qiita:items (&optional my)
+  (interactive "P")
+  (let ((qiita->token (when my qiita->token)))
+    (helm :sources '(helm-c-qiita-items-source))))
+
+(defun qiita:delete (uuid)
+  (when (yes-or-no-p "Delete this item?")
+    (qiita:api-delete-item uuid)))
+
+(defvar helm-c-qiita-items-source
+  '((name . "Qiita new activities")
+    (candidates . qiita:items-candidates)
+    (candidate-number-limit . 100)
+    (type . qiita-my-items)
+    (multiline)))
+
+
+;; (define-helm-type-attribute 'qiita-my-items
+;;   `((action ("Open Browser" . qiita:browse))))
+
+(define-helm-type-attribute 'qiita-my-items
+  `((action ("Open Browser" . qiita:browse)
+            ("Delete" . qiita:delete))))
