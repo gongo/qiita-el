@@ -111,12 +111,11 @@
   "自分のストックした投稿を取得します。(要認証)"
   (qiita:api-exec "GET" (concat qiita->api-endpoint "/stocks")))
 
-(defun qiita:api-create-item (title body tags private? &optional gist? tweet?)
-  (let ((args `(("title" . ,title)
-                ("body"  . ,body)
-                ("tags"  . ,tags))))
-    (if private? (add-to-list 'args '("private" . "true"))
-      (add-to-list 'args '("private" . "false")))
+(defun qiita:api-create-item (title body tags private &optional gist? tweet?)
+  (let ((args `(("title"   . ,title)
+                ("body"    . ,body)
+                ("tags"    . ,tags)
+                ("private" . ,private))))
     (when gist?    (add-to-list 'args '("gist"    . "true")))
     (when tweet?   (add-to-list 'args '("tweet"   . "true")))
     (qiita:api-exec "POST" (concat qiita->api-endpoint "/items") args)))
@@ -150,16 +149,6 @@
   )
 
 (defun qiita:body-cut-title (&optional buffer)
-  "指定したバッファ内の markdown 文章からタイトル (header-1) の部分を切り取る。
-
-対象は
-
-  # hogehoge
-
-もしくは
-
-  hogehoge
-  ========="
   (when (null buffer) (setq buffer (current-buffer)))
   (with-current-buffer buffer
     (goto-char (point-min))
@@ -174,21 +163,15 @@
       title)))
 
 (defun qiita:body-cut-tags (&optional buffer)
-  "指定したバッファ内の markdown 文章からをタグ表記を切り取り、array に変換する。
-
-  ==tags== ruby,emacs,c
-    ;; => [((:name . \"emacs\")) ((:name . \"ruby\")) ((:name . \"c\"))]"
   (when (null buffer) (setq buffer (current-buffer)))
   (with-current-buffer buffer
     (goto-char (point-min))
     (let (tags)
-      (unless (re-search-forward "^=tags= \\(.*\\)$" nil t)
+      (unless (re-search-forward "^==tags== \\(.*\\)$" nil t)
         (error "Can't find tags"))
       (setq tags (match-string-no-properties 1))
       (delete-region (match-beginning 0) (match-end 0))
-      (vconcat (mapcar (lambda (x) `((:name . ,x)))
-                       (split-string tags ",")))
-      )))
+      (vconcat (mapcar (lambda (x) `((:name . ,x))) (split-string tags ","))))))
 
 (defun qiita:post (&optional private?)
   (interactive "P")
@@ -198,6 +181,6 @@
       (insert mkdn)
       (let ((title (qiita:body-cut-title))
             (tags  (qiita:body-cut-tags))
-            (body (buffer-substring-no-properties (point-min) (point-max))))
-        (qiita:api-create-item title body tags (null private?)))
-      )))
+            (body (buffer-substring-no-properties (point-min) (point-max)))
+            (private (if (null private?) "true" "false")))
+        (qiita:api-create-item title body tags private)))))
