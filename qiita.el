@@ -45,10 +45,7 @@
 
 (defconst qiita->api-endpoint "https://qiita.com/api/v1"
   "The base URI on Qiita API. see <http://qiita.com/docs>")
-(defconst qiita->token nil)
-
-(defconst qiita->api-query-format
-  "curl -H \"Content-type: application/json\" -s -X %s -d %s %s")
+(defvar qiita->token nil)
 
 (defun qiita:api-exec (method uri &optional args)
   (with-temp-buffer
