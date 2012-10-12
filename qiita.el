@@ -111,11 +111,12 @@
   "自分のストックした投稿を取得します。(要認証)"
   (qiita:api-exec "GET" (concat qiita->api-endpoint "/stocks")))
 
-(defun qiita:api-create-item (title body tags &optional private? gist? tweet?)
+(defun qiita:api-create-item (title body tags private? &optional gist? tweet?)
   (let ((args `(("title" . ,title)
                 ("body"  . ,body)
                 ("tags"  . ,tags))))
-    (when private? (add-to-list 'args '("private" . "true")))
+    (if private? (add-to-list 'args '("private" . "true"))
+      (add-to-list 'args '("private" . "false")))
     (when gist?    (add-to-list 'args '("gist"    . "true")))
     (when tweet?   (add-to-list 'args '("tweet"   . "true")))
     (qiita:api-exec "POST" (concat qiita->api-endpoint "/items") args)))
