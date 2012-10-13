@@ -168,14 +168,11 @@
     (when tags    (add-to-list 'args `("tags"    . ,tags)))
     (when private (add-to-list 'args `("private" . ,private)))
 
-    (qiita:api-exec "PUT" (concat "/items/" uuid) args)))
-    ;; 本当はステータスコード確かめるんだけど、
-    ;; 更新に成功しても何故か 500 が返ってくるのでとりあえず放置
-    ;; (let ((response (qiita:api-exec "PUT" (concat "/items/" uuid) args)))
-    ;;   (if (eq 200 (qiita:response-status response))
-    ;;       (message "success")
-    ;;     (error "Error: Can't update item because (%s) %s"
-    ;;            uuid (plist-get (qiita:response-body response) :error))))))
+    (let ((response (qiita:api-exec "PUT" (concat "/items/" uuid) args)))
+      (if (eq 200 (qiita:response-status response))
+          (message "success")
+        (error "Error: Can't update item because (%s) %s"
+               uuid (plist-get (qiita:response-body response) :error))))))
 
 (defun qiita:api-delete-item (uuid)
   (let ((response (qiita:api-exec "DELETE" (format "/items/%s" uuid))))
