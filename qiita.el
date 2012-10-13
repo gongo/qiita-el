@@ -47,6 +47,12 @@
   "The base URI on Qiita API. see <http://qiita.com/docs>")
 (defvar qiita->token nil)
 
+;;;
+;;;
+;;; Qiita API
+;;;
+;;;
+
 (defun qiita:response-status (response)
   (plist-get response :status))
 
@@ -83,8 +89,9 @@
       (setq body (replace-regexp-in-string
                   "\n+$" ""
                   (buffer-substring-no-properties (point-min) (point-max))))
-      (setq res (plist-put res :json
-                           (unless (eq 0 (length body))
+
+      (unless (eq 0 (length body))
+        (setq res (plist-put res :json
                              (let ((json-object-type 'plist)
                                    (json-array-type 'list))
                                (json-read-from-string body)))))
@@ -140,7 +147,7 @@
   ;;pending
   )
 
-(defun qiita:api-create-item (title body tags private &optional gist? tweet?)
+(defun qiita:api-post-item (title body tags private &optional gist? tweet?)
   (let ((args `(("title"   . ,title)
                 ("body"    . ,body)
                 ("tags"    . ,tags)
@@ -154,9 +161,21 @@
         (error "Error: Can't create item because %s"
                (plist-get (qiita:response-body response) :error))))))
 
-(defun qiita:api-update-item ()
-  ;; pending
-  )
+(defun qiita:api-put-item (uuid &optional title body tags private)
+  (let (args '())
+    (when title   (add-to-list 'args `("title"   . ,title)))
+    (when body    (add-to-list 'args `("body"    . ,body)))
+    (when tags    (add-to-list 'args `("tags"    . ,tags)))
+    (when private (add-to-list 'args `("private" . ,private)))
+
+    (qiita:api-exec "PUT" (concat "/items/" uuid) args)))
+    ;; 本当はステータスコード確かめるんだけど、
+    ;; 更新に成功しても何故か 500 が返ってくるのでとりあえず放置
+    ;; (let ((response (qiita:api-exec "PUT" (concat "/items/" uuid) args)))
+    ;;   (if (eq 200 (qiita:response-status response))
+    ;;       (message "success")
+    ;;     (error "Error: Can't update item because (%s) %s"
+    ;;            uuid (plist-get (qiita:response-body response) :error))))))
 
 (defun qiita:api-delete-item (uuid)
   (let ((response (qiita:api-exec "DELETE" (format "/items/%s" uuid))))
@@ -185,6 +204,12 @@
   ;; pending
   )
 
+;;;
+;;;
+;;; Function for post item
+;;;
+;;;
+
 (defun qiita:body-cut-title (&optional buffer)
   (when (null buffer) (setq buffer (current-buffer)))
   (with-current-buffer buffer
@@ -204,26 +229,41 @@
   (with-current-buffer buffer
     (goto-char (point-min))
     (let (tags)
-      (unless (re-search-forward "^==tags== \\(.*\\)$" nil t)
+      (unless (re-search-forward "^<!-- tags \\(.*\\) -->$" nil t)
         (error "Can't find tags"))
       (setq tags (match-string-no-properties 1))
       (delete-region (match-beginning 0) (match-end 0))
       (vconcat (mapcar (lambda (x) `((:name . ,x))) (split-string tags ","))))))
 
-(defun qiita:post (&optional private?)
-  (interactive "P")
-  (let ((mkdn (with-current-buffer (current-buffer)
-                (buffer-substring-no-properties (point-min) (point-max)))))
-    (with-temp-buffer
-      (insert mkdn)
-      (let ((title (qiita:body-cut-title))
-            (tags  (qiita:body-cut-tags))
-            (body (buffer-substring-no-properties (point-min) (point-max)))
-            (private (if (null private?) "true" "false")))
-        (qiita:api-create-item title body tags private)))))
+(defun qiita:body-cut-uuid (&optional buffer)
+  (when (null buffer) (setq buffer (current-buffer)))
+  (with-current-buffer buffer
+    (goto-char (point-min))
+    (let (uuid)
+      (when (re-search-forward "^<!-- uuid \\(.*\\) -->$" nil t)
+        (setq uuid (match-string-no-properties 1))
+        (delete-region (match-beginning 0) (match-end 0)))
+      uuid)))
+
+;;;
+;;;
+;;; Helm actions
+;;;
+;;;
 
 (defun qiita:browse (uuid)
   (browse-url (concat "http://qiita.com/items/" uuid)))
+
+(defun qiita:delete (uuid)
+  (when (yes-or-no-p "Delete this item? ")
+    (qiita:api-delete-item uuid)))
+
+
+;;;
+;;;
+;;; Helm sources
+;;;
+;;;
 
 (defun qiita:items-candidates ()
   (mapcar (lambda (item)
@@ -239,27 +279,50 @@
                     uuid)))
           (qiita:api-items)))
 
-
-(defun qiita:items (&optional my)
-  (interactive "P")
-  (let ((qiita->token (when my qiita->token)))
-    (helm :sources '(helm-c-qiita-items-source))))
-
-(defun qiita:delete (uuid)
-  (when (yes-or-no-p "Delete this item?")
-    (qiita:api-delete-item uuid)))
-
 (defvar helm-c-qiita-items-source
-  '((name . "Qiita new activities")
-    (candidates . qiita:items-candidates)
+  '((name   . "Qiita new activities")
+    (type   . qiita-items)
+    (action . (("Open Browser" . qiita:browse)
+               ))
+    ))
+
+(defvar helm-c-qiita-my-items-source
+  '((name   . "Qiita my activities")
+    (type   . qiita-items)
+    (action . (("Open Browser" . qiita:browse)
+               ("Delete" . qiita:delete)))
+    ))
+
+(define-helm-type-attribute 'qiita-items
+  `((candidates . qiita:items-candidates)
     (candidate-number-limit . 100)
-    (type . qiita-my-items)
     (multiline)))
 
 
-;; (define-helm-type-attribute 'qiita-my-items
-;;   `((action ("Open Browser" . qiita:browse))))
+;;;
+;;;
+;;; User functions
+;;;
+;;;
 
-(define-helm-type-attribute 'qiita-my-items
-  `((action ("Open Browser" . qiita:browse)
-            ("Delete" . qiita:delete))))
+(defun qiita:post (&optional private?)
+  (interactive "P")
+  (let ((mkdn (with-current-buffer (current-buffer)
+                (buffer-substring-no-properties (point-min) (point-max)))))
+    (with-temp-buffer
+      (insert mkdn)
+      (let ((title (qiita:body-cut-title))
+            (tags  (qiita:body-cut-tags))
+            (uuid  (qiita:body-cut-uuid))
+            (body (buffer-substring-no-properties (point-min) (point-max)))
+            (private (if (null private?) "true" "false")))
+        (if uuid
+            (when (yes-or-no-p "Update item? ")
+              (qiita:api-put-item uuid title body tags private))
+          (qiita:api-post-item title body tags private))))))
+
+(defun qiita:items (&optional my)
+  (interactive "P")
+  (let ((qiita->token (if my qiita->token nil))
+        (source (if my helm-c-qiita-my-items-source helm-c-qiita-items-source)))
+    (helm :sources source)))
