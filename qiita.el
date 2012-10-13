@@ -326,3 +326,5 @@
   (let ((qiita->token (if my qiita->token nil))
         (source (if my helm-c-qiita-my-items-source helm-c-qiita-items-source)))
     (helm :sources source)))
+
+(provide 'qiita)
