@@ -139,8 +139,9 @@
     (setq response (qiita:api-exec "GET" "/search" args))
     (qiita:response-body response)))
 
-(defun qiita:api-items ()
-  (let ((response (qiita:api-exec "GET" "/items")))
+(defun qiita:api-items (&optional my)
+  (let* ((qiita->token (if my qiita->token nil))
+         (response (qiita:api-exec "GET" "/items")))
     (qiita:response-body response)))
 
 (defun qiita:api-stocks ()
@@ -188,14 +189,18 @@
     (qiita:response-body response)))
 
 (defun qiita:api-stock-item (uuid)
-  "指定した投稿 UUID をストックします。"
-  ;; pending
-  )
+  (let ((response (qiita:api-exec "PUT" (format "/items/%s/stock" uuid))))
+    (if (eq 204 (qiita:response-status response))
+        (message "success")
+      (error "Error: Can't stock item (%s). because %s"
+             uuid (plist-get (qiita:response-body response) :error)))))
 
 (defun qiita:api-unstock-item (uuid)
-  "指定した投稿 UUID をストック解除します。"
-  ;; pending
-  )
+  (let ((response (qiita:api-exec "DELETE" (format "/items/%s/stock" uuid))))
+    (if (eq 204 (qiita:response-status response))
+        (message "success")
+      (error "Error: Can't unstock item (%s). because %s"
+             uuid (plist-get (qiita:response-body response) :error)))))
 
 (defun qiita:api-user-info (username)
   "指定したユーザーの情報を取得します。"
@@ -285,7 +290,7 @@
 ;;;
 ;;;
 
-(defun qiita:items-candidates ()
+(defun qiita:transformer-items (items)
   (mapcar (lambda (item)
             (let ((title (plist-get item :title))
                   (uuid  (plist-get item :uuid))
@@ -297,27 +302,34 @@
                             title "\n"
                             "  by " user)
                     uuid)))
-          (qiita:api-items)))
+          items))
+
 
 (defvar helm-c-qiita-items-source
   '((name   . "Qiita new activities")
     (type   . qiita-items)
     (action . (("Open Browser" . qiita:browse)
                ("Open"         . qiita:show)
+               ("Stock"        . qiita:api-stock-item)
+               ("Unstock"      . qiita:api-unstock-item)
                ))
     ))
 
 (defvar helm-c-qiita-my-items-source
   '((name   . "Qiita my activities")
     (type   . qiita-items)
+    (candidates . (lambda () (qiita:api-items t)))
     (action . (("Open Browser" . qiita:browse)
                ("Open"         . qiita:show)
+               ("Stock"        . qiita:api-stock-item)
+               ("Unstock"      . qiita:api-unstock-item)
                ("Delete" . qiita:delete)))
     ))
 
 (define-helm-type-attribute 'qiita-items
-  `((candidates . qiita:items-candidates)
+  `((candidates . qiita:api-items)
     (candidate-number-limit . 100)
+    (candidate-transformer qiita:transformer-items)
     (multiline)))
 
 
@@ -343,10 +355,30 @@
               (qiita:api-put-item uuid title body tags private))
           (qiita:api-post-item title body tags private))))))
 
+(defun qiita:stock ()
+  (interactive)
+  (let ((mkdn (with-current-buffer (current-buffer)
+                (buffer-substring-no-properties (point-min) (point-max)))))
+    (with-temp-buffer
+      (insert mkdn)
+      (let ((uuid  (qiita:body-cut-uuid)))
+        (unless uuid
+          (error "Can't find uuid"))
+        (qiita:api-stock-item uuid)))))
+
+(defun qiita:unstock ()
+  (interactive)
+  (let ((mkdn (with-current-buffer (current-buffer)
+                (buffer-substring-no-properties (point-min) (point-max)))))
+    (with-temp-buffer
+      (insert mkdn)
+      (let ((uuid  (qiita:body-cut-uuid)))
+        (unless uuid
+          (error "Can't find uuid"))
+        (qiita:api-unstock-item uuid)))))
+
 (defun qiita:items (&optional my)
   (interactive "P")
-  (let ((qiita->token (if my qiita->token nil))
-        (source (if my helm-c-qiita-my-items-source helm-c-qiita-items-source)))
-    (helm :sources source)))
+  (helm :sources (if my helm-c-qiita-my-items-source helm-c-qiita-items-source)))
 
 (provide 'qiita)
