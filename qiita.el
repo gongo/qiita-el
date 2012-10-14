@@ -45,6 +45,8 @@
 
 (defconst qiita->api-endpoint "https://qiita.com/api/v1"
   "The base URI on Qiita API. see <http://qiita.com/docs>")
+
+(defvar qiita->show-buffer-name "*Qiita show*")
 (defvar qiita->token nil)
 
 ;;;
@@ -182,9 +184,8 @@
              uuid (plist-get (qiita:response-body response) :error)))))
 
 (defun qiita:api-get-item (uuid)
-  ;;(qiita:api-exec "GET" (format "/items/%s" uuid)))
-  ;; pending
-  )
+  (let ((response (qiita:api-exec "GET" (format "/items/%s" uuid))))
+    (qiita:response-body response)))
 
 (defun qiita:api-stock-item (uuid)
   "指定した投稿 UUID をストックします。"
@@ -242,6 +243,28 @@
         (delete-region (match-beginning 0) (match-end 0)))
       uuid)))
 
+(defun qiita:show (uuid)
+  (with-current-buffer (get-buffer-create qiita->show-buffer-name)
+    (view-mode-disable)
+    (erase-buffer)
+
+    (let* ((response (qiita:api-get-item uuid))
+           (title (plist-get response :title))
+           (body  (plist-get response :raw_body))
+           (uuid  (plist-get response :uuid))
+           (tags  (mapconcat (lambda (tag)
+                               (plist-get tag :name))
+                             (plist-get response :tags) ",")))
+
+      (insert "# " title "\n\n"
+              "<!-- tags " tags " -->\n"
+              "<!-- uuid " uuid " -->\n\n"
+              body))
+    (goto-char (point-min))
+    (markdown-mode)
+    (view-mode-enable))
+  (switch-to-buffer qiita->show-buffer-name))
+
 ;;;
 ;;;
 ;;; Helm actions
@@ -280,6 +303,7 @@
   '((name   . "Qiita new activities")
     (type   . qiita-items)
     (action . (("Open Browser" . qiita:browse)
+               ("Open"         . qiita:show)
                ))
     ))
 
@@ -287,6 +311,7 @@
   '((name   . "Qiita my activities")
     (type   . qiita-items)
     (action . (("Open Browser" . qiita:browse)
+               ("Open"         . qiita:show)
                ("Delete" . qiita:delete)))
     ))
 
