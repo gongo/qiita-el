@@ -47,6 +47,8 @@
   "The base URI on Qiita API. see <http://qiita.com/docs>")
 
 (defvar qiita->show-buffer-name "*Qiita show*")
+
+(defvar qiita->username nil)
 (defvar qiita->token nil)
 
 ;;;
@@ -308,11 +310,6 @@
 (defvar helm-c-qiita-items-source
   '((name   . "Qiita new activities")
     (type   . qiita-items)
-    (action . (("Open Browser" . qiita:browse)
-               ("Open"         . qiita:show)
-               ("Stock"        . qiita:api-stock-item)
-               ("Unstock"      . qiita:api-unstock-item)
-               ))
     ))
 
 (defvar helm-c-qiita-my-items-source
@@ -330,6 +327,11 @@
   `((candidates . qiita:api-items)
     (candidate-number-limit . 100)
     (candidate-transformer qiita:transformer-items)
+    (action . (("Open Browser" . qiita:browse)
+               ("Open"         . qiita:show)
+               ("Stock"        . qiita:api-stock-item)
+               ("Unstock"      . qiita:api-unstock-item)
+               ))
     (multiline)))
 
 
@@ -380,5 +382,16 @@
 (defun qiita:items (&optional my)
   (interactive "P")
   (helm :sources (if my helm-c-qiita-my-items-source helm-c-qiita-items-source)))
+
+(defun qiita:search (&optional stocked)
+  (interactive "P")
+  (let* ((keyword (read-from-minibuffer "Search: "))
+         (stocked? (if stocked t nil))
+         (items (qiita:api-search keyword stocked?)))
+    (helm :sources
+          `((name . "Qiita search activities")
+            (candidates . items)
+            (type . qiita-items)
+            ))))
 
 (provide 'qiita)
