@@ -122,18 +122,14 @@
   )
 
 (defun qiita:api-tag-items (tag)
-  "指定したタグの投稿を取得します。"
-  ;; pending
-  )
+  (let ((response (qiita:api-exec "GET" (format "/tags/%s/items" tag))))
+    (qiita:response-body response)))
 
-(defun qiita:api-tag ()
-  "タグ一覧を取得します。"
-  ;;(qiita:api-exec "GET" "/tags"))
-  ;;pending
-  )
+(defun qiita:api-tags ()
+  (let ((response (qiita:api-exec "GET" "/tags" '(("per_page" . 100)))))
+    (qiita:response-body response)))
 
 (defun qiita:api-search (q &optional stocked)
-  "指定したキーワードの検索結果を取得します。 TODO"
   (let ((args `(("q" . ,q)))
         response)
     (when qiita->token
@@ -278,12 +274,22 @@
 ;;;
 ;;;
 
-(defun qiita:browse (uuid)
+(defun qiita:browse-item (uuid)
   (browse-url (concat "http://qiita.com/items/" uuid)))
+
+(defun qiita:browse-tag (tag)
+  (browse-url (concat "http://qiita.com/tags/" tag)))
 
 (defun qiita:delete (uuid)
   (when (yes-or-no-p "Delete this item? ")
     (qiita:api-delete-item uuid)))
+
+
+(defun qiita:tag-items (tag)
+  (helm :sources
+        `((name . ,(format "Qiita %s items" tag))
+          (candidates . ,(lambda () (qiita:api-tag-items tag)))
+          (type . qiita-items))))
 
 
 ;;;
@@ -316,7 +322,7 @@
   '((name   . "Qiita my activities")
     (type   . qiita-items)
     (candidates . (lambda () (qiita:api-items t)))
-    (action . (("Open Browser" . qiita:browse)
+    (action . (("Open Browser" . qiita:browse-item)
                ("Open"         . qiita:show)
                ("Stock"        . qiita:api-stock-item)
                ("Unstock"      . qiita:api-unstock-item)
@@ -327,7 +333,7 @@
   `((candidates . qiita:api-items)
     (candidate-number-limit . 100)
     (candidate-transformer qiita:transformer-items)
-    (action . (("Open Browser" . qiita:browse)
+    (action . (("Open Browser" . qiita:browse-item)
                ("Open"         . qiita:show)
                ("Stock"        . qiita:api-stock-item)
                ("Unstock"      . qiita:api-unstock-item)
@@ -382,6 +388,20 @@
 (defun qiita:items (&optional my)
   (interactive "P")
   (helm :sources (if my helm-c-qiita-my-items-source helm-c-qiita-items-source)))
+
+(defun qiita:tags ()
+  (interactive)
+  (helm :sources
+        `((name . "Qiita tags")
+          (candidates . ,(lambda ()
+                           (mapcar
+                            (lambda (tag)
+                              (cons (plist-get tag :name)
+                                    (plist-get tag :url_name)))
+                            (qiita:api-tags))))
+          (action . (("Open Browser" . qiita:browse-tag)
+                     ("Open tag items" . qiita:tag-items))))
+        ))
 
 (defun qiita:search (&optional stocked)
   (interactive "P")
