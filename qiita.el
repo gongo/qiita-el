@@ -112,9 +112,8 @@
     (plist-get (qiita:response-body response) :token)))
 
 (defun qiita:api-user-items (username)
-  "指定したユーザーの投稿を取得します。"
-  ;; pending
-  )
+  (let ((response (qiita:api-exec "GET" (format "/users/%s/items" username))))
+    (qiita:response-body response)))
 
 (defun qiita:api-user-stocks (username)
   (let ((response (qiita:api-exec "GET" (format "/users/%s/stocks" username))))
@@ -388,6 +387,13 @@
 (defun qiita:items (&optional my)
   (interactive "P")
   (helm :sources (if my helm-c-qiita-my-items-source helm-c-qiita-items-source)))
+
+(defun qiita:user-items (user)
+  (interactive "sWho?: ")
+  (helm :sources
+        `((name . ,(format "Qiita %s items" user))
+          (type . qiita-items)
+          (candidates . ,(lambda () (qiita:api-user-items user))))))
 
 (defun qiita:tags ()
   (interactive)
