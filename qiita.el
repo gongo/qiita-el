@@ -117,9 +117,8 @@
   )
 
 (defun qiita:api-user-stocks (username)
-  "指定したユーザーのストックした投稿を取得します。"
-  ;; pending
-  )
+  (let ((response (qiita:api-exec "GET" (format "/users/%s/stocks" username))))
+    (qiita:response-body response)))
 
 (defun qiita:api-tag-items (tag)
   (let ((response (qiita:api-exec "GET" (format "/tags/%s/items" tag))))
@@ -143,10 +142,11 @@
     (qiita:response-body response)))
 
 (defun qiita:api-stocks ()
-  "自分のストックした投稿を取得します。(要認証)"
-  ;;(qiita:api-exec "GET" "/stocks"))
-  ;;pending
-  )
+  (let ((response (qiita:api-exec "GET" "/stocks")))
+    (when (<= 400 (qiita:response-status response))
+      (error "Error: Can't get my stocks because %s"
+             (plist-get (qiita:response-body response) :error)))
+    (qiita:response-body response)))
 
 (defun qiita:api-post-item (title body tags private &optional gist? tweet?)
   (let ((args `(("title"   . ,title)
@@ -402,6 +402,20 @@
           (action . (("Open Browser" . qiita:browse-tag)
                      ("Open tag items" . qiita:tag-items))))
         ))
+
+(defun qiita:my-stocks ()
+  (interactive)
+  (helm :sources
+        `((name . "Qiita my stocks")
+          (type . qiita-items)
+          (candidates . qiita:api-stocks))))
+
+(defun qiita:user-stocks (user)
+  (interactive "sWho?: ")
+  (helm :sources
+        `((name . ,(format "Qiita %s stocks" user))
+          (type . qiita-items)
+          (candidates . ,(lambda () (qiita:api-user-stocks user))))))
 
 (defun qiita:search (&optional stocked)
   (interactive "P")
