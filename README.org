@@ -1,0 +1,134 @@
+* qiita.el
+
+  Qiita API Library for emacs
+
+** Requirement
+
+   - [[https://github.com/emacs-helm/helm][helm]]
+   - [[https://github.com/defunkt/markdown-mode][markdown-mode]]
+
+** Usage
+
+   : (require 'qiita)
+   :  
+   : ;; option
+   : ;;   Used features that require authentication.
+   : (setq qiita->token "xxxxxxxxxxx")
+
+** How
+
+*** View
+**** activities
+
+     | Command                      | Result                | Note                    |
+     |------------------------------+-----------------------+-------------------------|
+     | ~M-x qiita:items~            | Activities            |                         |
+     | ~C-u M-x qiita:items~        | My activities         | Authentication Required |
+     | ~M-x qiita:user-items USER~  | USER activities       |                         |
+     | ~M-x qiita:my-stocks~        | My stock activities   | Authentication Required |
+     | ~M-x qiita:user-stocks USER~ | USER stock activities |                         |
+
+**** Tags
+
+     | Command          | Result |
+     |------------------+--------|
+     | ~M-x qiita:tags~ | Tags   |
+
+**** Search
+
+     | Command                    | Result         |
+     |----------------------------+----------------|
+     | ~M-x qiita:search KEYWORD~ | Search results |
+
+*** Stock/Unstock
+
+    This features requires authentication.
+
+**** On list view
+
+     1. Exec View activities functions (eg. ~M-x qiita:items~)
+     2. Enter the <TAB> on the item you want to stock/unstock
+     3. Select "Stock" or "Unstock" and Enter the <ENTER>
+
+**** On item view
+
+     1. Exec View activities functions (eg. ~M-x qiita:items~)
+     2. Enter the <TAB> on the item you want to stock/unstock
+     3. Select "Open" and Enter the <ENTER>
+     4. Item is opened, run ~M-x qiita:stock~ or ~M-x qiita:unstock~
+
+*** Post (Create)
+**** Rule
+     - Title
+       : # title
+       or 
+       : title
+       : =====
+
+     - Tags
+
+       : <!-- tags hoge,fuga -->
+
+       So, set tag "hoge" and "fuga"
+**** Example
+     1. Open new buffer ~markdown-mode~
+     2. Input item. example..
+        #+BEGIN_EXAMPLE
+ qiita-el テスト投稿
+ ====================
+ 
+ みなさまお疲れ様です。
+ 
+ <!-- tags Emacs,Ruby -->
+ <!-- uuid ee796188dc4945769282 -->
+ 
+ [gongo/qiita-el · GitHub](https://github.com/gongo/qiita-el)
+ 
+ - List1
+ - List2
+ - List3
+ 
+ 1. hoge
+     1. hoge1
+ 2. fuga
+     1. fuga2
+ 3. hago
+     1. hago1
+     1. hago2
+     1. hago3
+ 
+ ```c
+ #include <stdio.h>
+ 
+ int main(void)
+ {
+     printf("Hello, World!!");
+ }
+ ```
+ 
+ ```ruby
+ p 'Hello, Wo\'rld!'
+ ```
+ 
+ > 1
+ > 2
+ > 3
+        #+END_EXAMPLE
+     3. Run under functions
+
+        | Command              | Result              |
+        |----------------------+---------------------|
+        | ~M-x qiita:post~     | Post *private item* |
+        | ~C-u M-x qiita:post~ | Post *public item*  |
+
+     4. Posted (example [[http://qiita.com/items/ee796188dc4945769282]] )
+
+*** Put (Update)
+    1. Input ~<!-- uuid xxxxx -->~
+    2. run ~M-x qiita:post~ or ~C-u M-x qiita:post~
+
+    So, Update uuid=xxxx item.
+
+** License
+
+MIT License
