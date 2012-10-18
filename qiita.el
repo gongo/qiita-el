@@ -50,7 +50,6 @@
 
 (defvar qiita->username nil)
 (defvar qiita->token nil)
-(defvar qiita->temp-tag-items-param nil)
 
 ;;;
 ;;;
@@ -397,27 +396,24 @@
 
 (defun qiita:tags ()
   (interactive)
+  (let (selected-tag)
+    (helm :sources
+          `((name . "Qiita tags")
+            (candidates . ,(lambda ()
+                             (mapcar
+                              (lambda (tag)
+                                (cons (plist-get tag :name)
+                                      (plist-get tag :url_name)))
+                              (qiita:api-tags))))
+            (action . (("Open Browser" .
+                        qiita:browse-tag)
+                       ("Open tag items" .
+                        ,(lambda (tag)
+                           (setq selected-tag tag)))))))
 
-  (setq qiita->temp-tag-items-param nil)
-  (helm :sources
-        `((name . "Qiita tags")
-          (candidates . ,(lambda ()
-                           (mapcar
-                            (lambda (tag)
-                              (cons (plist-get tag :name)
-                                    (plist-get tag :url_name)))
-                            (qiita:api-tags))))
-          (action . (("Open Browser" .
-                      qiita:browse-tag)
-                     ("Open tag items" .
-                      ,(lambda (tag)
-                         (setq qiita->temp-tag-items-param tag)
-                         ))))))
-
-  ;; helm の中で helm 起動が上手くいかなかったので妥協
-  (when qiita->temp-tag-items-param
-    (qiita:tag-items qiita->temp-tag-items-param))
-  (setq qiita->temp-tag-items-param nil))
+    ;; helm の中で helm 起動が上手くいかなかったので妥協
+    (when selected-tag
+      (qiita:tag-items selected-tag))))
 
 (defun qiita:my-stocks ()
   (interactive)
