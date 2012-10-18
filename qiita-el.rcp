@@ -1,0 +1,5 @@
+(:name qiita-el
+       :description "Qiita API Library for emacs"
+       :type github
+       :pkgname "gongo/qiita-el"
+       )
