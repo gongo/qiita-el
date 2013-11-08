@@ -300,7 +300,7 @@
   (mapcar (lambda (item)
             (let ((title (plist-get item :title))
                   (uuid  (plist-get item :uuid))
-                  (user  (plist-get (plist-get item :user) :name))
+                  (user  (plist-get (plist-get item :user) :url_name))
                   (tags  (mapconcat (lambda (tag)
                                       (concat "[" (plist-get tag :name) "]"))
                                     (plist-get item :tags) "")))
