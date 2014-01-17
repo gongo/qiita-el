@@ -1,6 +1,7 @@
-;;; qiita.el -- Qiita API Library for emacs
+;;; qiita.el --- Qiita API Library for emacs
 
 ;; Author: Wataru MIYAGUNI (gonngo _at_ gmail.com)
+;; URL: https://github.com/gongo/qiita-el
 ;; Keywords: qiita
 
 ;; Copyright (c) 2012 Wataru MIYAGUNI
@@ -441,3 +442,5 @@
             ))))
 
 (provide 'qiita)
+
+;;; qiita.el ends here
