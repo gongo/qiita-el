@@ -347,6 +347,7 @@
 ;;;
 ;;;
 
+;;;###autoload
 (defun qiita:post (&optional private?)
   (interactive "P")
   (let ((mkdn (with-current-buffer (current-buffer)
@@ -363,6 +364,7 @@
               (qiita:api-put-item uuid title body tags private))
           (qiita:api-post-item title body tags private))))))
 
+;;;###autoload
 (defun qiita:stock ()
   (interactive)
   (let ((mkdn (with-current-buffer (current-buffer)
@@ -374,6 +376,7 @@
           (error "Can't find uuid"))
         (qiita:api-stock-item uuid)))))
 
+;;;###autoload
 (defun qiita:unstock ()
   (interactive)
   (let ((mkdn (with-current-buffer (current-buffer)
@@ -385,10 +388,12 @@
           (error "Can't find uuid"))
         (qiita:api-unstock-item uuid)))))
 
+;;;###autoload
 (defun qiita:items (&optional my)
   (interactive "P")
   (helm :sources (if my helm-c-qiita-my-items-source helm-c-qiita-items-source)))
 
+;;;###autoload
 (defun qiita:user-items (user)
   (interactive "sWho?: ")
   (helm :sources
@@ -396,6 +401,7 @@
           (type . qiita-items)
           (candidates . ,(lambda () (qiita:api-user-items user))))))
 
+;;;###autoload
 (defun qiita:tags ()
   (interactive)
   (let (selected-tag)
@@ -417,6 +423,7 @@
     (when selected-tag
       (qiita:tag-items selected-tag))))
 
+;;;###autoload
 (defun qiita:my-stocks ()
   (interactive)
   (helm :sources
@@ -424,6 +431,7 @@
           (type . qiita-items)
           (candidates . qiita:api-stocks))))
 
+;;;###autoload
 (defun qiita:user-stocks (user)
   (interactive "sWho?: ")
   (helm :sources
@@ -431,6 +439,7 @@
           (type . qiita-items)
           (candidates . ,(lambda () (qiita:api-user-stocks user))))))
 
+;;;###autoload
 (defun qiita:search (&optional stocked)
   (interactive "P")
   (let* ((keyword (read-from-minibuffer "Search: "))
