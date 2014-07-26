@@ -121,7 +121,7 @@
         | ~M-x qiita:post~     | Post *private item* |
         | ~C-u M-x qiita:post~ | Post *public item*  |
 
-     4. Posted (example [[http://qiita.com/items/ee796188dc4945769282]] )
+     4. Posted (example [[http://qiita.com/gongo/private/ee796188dc4945769282]] )
 
 *** Put (Update)
     1. Input ~<!-- uuid xxxxx -->~
